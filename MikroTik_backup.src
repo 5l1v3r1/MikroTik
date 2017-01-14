@@ -1,0 +1,39 @@
+{
+:log info "Backup bude proveden/Backup will be executed";
+:local months {{"jan";"01"};{"feb";"02"};{"mar";"03"};{"apr";"04"};{"may";"05"};{"jun";"06"};{"jul";"07"};{"aug";"08"};{"sep";"09"};{"oct";"10"};{"nov";"11"};{"dec";"12"}};
+:local date [/system clock get date]
+:local mon [:pick $date 0 3]
+:local mm ""
+:foreach month in=$months do={
+:if ([:pick $month 0] = $mon) do={
+:set mm [:pick $month 1];
+}
+}
+{
+:local gw [/ip route get [find where dst-address=0.0.0.0/0] gateway];
+:local macka [/ip arp get [find address=$gw] mac-address ];
+:local iface [/ip arp get [find mac-address =$macka] interface ]
+:local backupfile ([:global ipaddress [/ip address get [find interface="$iface"] address]] :put [:pick $ipaddress 0 [:find $ipaddress "/"] ] . "-" . [:pick $date 7 11] . $mm . [:pick $date 4 6]);
+:local ftpusername "JMENO/NAME";
+:local ftppasswrd "HESLO/PASSWORD";
+:local ftpserverip "SERVER IP";
+:local ftpserverport "21";
+:foreach i in=[/file find] do={:if ([:typeof [:find [/file get $i name] "backup"]]!="nil") do={/file remove $i}}
+:delay 20s
+/system backup save name="$backupfile-backup";
+:delay 20s
+/export file="$backupfile-backup";
+:delay 20s
+/export compact file="$backupfile-backup-compact";
+:delay 20s
+:log info "Backup soubory vytvoreny/Backup files created";
+/tool fetch address=$ftpserverip src-path="$backupfile-backup.backup" user=$ftpusername password=$ftppasswrd mode=ftp dst-path="/mikrotik/$backupfile-backup.backup" upload=yes port=$ftpserverport
+:delay 20s
+/tool fetch address=$ftpserverip src-path="$backupfile-backup.rsc" user=$ftpusername password=$ftppasswrd mode=ftp dst-path="/mikrotik/$backupfile-backup.rsc" upload=yes port=$ftpserverport
+:delay 20s
+/tool fetch address=$ftpserverip src-path="$backupfile-backup-compact.rsc" user=$ftpusername password=$ftppasswrd mode=ftp dst-path="/mikrotik/$backupfile-backup-compact.rsc" upload=yes port=$ftpserverport
+:delay 20s
+:log info "Zaloha nahrana na server/Backup uploaded to the server"
+}
+}
+/
